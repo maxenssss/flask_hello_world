@@ -1,0 +1,40 @@
+name: Flask Preview with Ngrok
+
+on: [push]
+
+jobs:
+  build-and-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build Docker Image
+        run: docker build -t flask-preview .
+
+      - name: Run Docker Container and Tunnel
+        env:
+          NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+        run: |
+          # On lance le container en arrière-plan
+          docker run -d --name flask_app -e NGROK_AUTHTOKEN=$NGROK_AUTHTOKEN flask-preview
+          
+          # On attend un peu que Ngrok génère l'URL
+          sleep 10
+          
+          # On récupère le fichier url_preview.txt depuis le container
+          docker cp flask_app:/app/url_preview.txt .
+          
+          echo "L'URL est : $(cat url_preview.txt)"
+          
+          # On laisse tourner pendant 300 secondes comme demandé
+          sleep 300
+          
+          # Nettoyage
+          docker stop flask_app
+
+      - name: Upload URL Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-url
+          path: url_preview.txt
